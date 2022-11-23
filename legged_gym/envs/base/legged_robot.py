@@ -48,8 +48,6 @@ from legged_gym.utils.math import quat_apply_yaw, wrap_to_pi, torch_rand_sqrt_fl
 from legged_gym.utils.helpers import class_to_dict
 from .legged_robot_config import LeggedRobotCfg
 
-import nvtx
-
 class LeggedRobot(BaseTask):
     def __init__(self, cfg: LeggedRobotCfg, sim_params, physics_engine, sim_device, headless, matplotlib):
         """ Parses the provided config file,
@@ -77,8 +75,24 @@ class LeggedRobot(BaseTask):
         self._init_buffers()
         self._prepare_reward_function()
         self.init_done = True
+        
+        self.position_command_limit_low = None
+        self.position_command_limit_high = None
+        self.position_termination_limit_low = None
+        self.position_termination_limit_high = None
+        if cfg.env.position_command_limit_low is not None:
+          self.position_command_limit_low = torch.tensor(
+              cfg.env.position_command_limit_low).to(self.device)
+        if cfg.env.position_command_limit_high is not None:
+          self.position_command_limit_high = torch.tensor(
+              cfg.env.position_command_limit_high).to(self.device)
+        if cfg.env.position_termination_limit_low is not None:
+          self.position_termination_limit_low = torch.tensor(
+              cfg.env.position_termination_limit_low).to(self.device)
+        if cfg.env.position_termination_limit_high is not None:
+          self.position_termination_limit_high = torch.tensor(
+              cfg.env.position_termination_limit_high).to(self.device)
 
-    @nvtx.annotate("step", color="red")
     def step(self, actions):
         """ Apply actions, simulate, call self.post_physics_step()
 
@@ -92,8 +106,7 @@ class LeggedRobot(BaseTask):
         for _ in range(self.cfg.control.decimation):
             self.torques = self._compute_torques(self.actions).view(self.torques.shape)
             self.gym.set_dof_actuation_force_tensor(self.sim, gymtorch.unwrap_tensor(self.torques))
-            with nvtx.annotate("gym.simulate", color="purple"):
-              self.gym.simulate(self.sim)
+            self.gym.simulate(self.sim)
             if self.device == 'cpu':
                 self.gym.fetch_results(self.sim, True)
             self.gym.refresh_dof_state_tensor(self.sim)
@@ -106,7 +119,6 @@ class LeggedRobot(BaseTask):
             self.privileged_obs_buf = torch.clip(self.privileged_obs_buf, -clip_obs, clip_obs)
         return self.obs_buf, self.privileged_obs_buf, self.rew_buf, self.reset_buf, self.extras
 
-    @nvtx.annotate("post_physics_step", color="green")
     def post_physics_step(self):
         """ check terminations, compute observations and rewards
             calls self._post_physics_step_callback() for common computations 
@@ -143,9 +155,18 @@ class LeggedRobot(BaseTask):
     def check_termination(self):
         """ Check if environments need to be reset
         """
+        joint_angle_limit_terminate = torch.logical_or(
+        torch.any(
+            (self.dof_pos - self.position_termination_limit_low) < 0, dim=-1),
+        torch.any(
+            (self.dof_pos - self.position_termination_limit_high) > 0, dim=-1))
+
+
         self.reset_buf = torch.any(torch.norm(self.contact_forces[:, self.termination_contact_indices, :], dim=-1) > 1., dim=1)
         self.time_out_buf = self.episode_length_buf > self.max_episode_length # no terminal reward for time-outs
         self.reset_buf |= self.time_out_buf
+        self.reset_buf = torch.logical_or(self.reset_buf,
+                                      joint_angle_limit_terminate)
 
     def reset_idx(self, env_ids):
         """ Reset some environments.
@@ -192,7 +213,6 @@ class LeggedRobot(BaseTask):
         if self.cfg.env.send_timeouts:
             self.extras["time_outs"] = self.time_out_buf
     
-    @nvtx.annotate("compute_reward", color="yellow")
     def compute_reward(self):
         """ Compute rewards
             Calls each reward function which had a non-zero scale (processed in self._prepare_reward_function())
@@ -371,7 +391,13 @@ class LeggedRobot(BaseTask):
         actions_scaled = actions * self.cfg.control.action_scale
         control_type = self.cfg.control.control_type
         if control_type=="P":
-            torques = self.p_gains*(actions_scaled + self.default_dof_pos - self.dof_pos) - self.d_gains*self.dof_vel
+            target_pos = actions_scaled + self.default_dof_pos
+            if self.position_command_limit_low is not None and self.position_command_limit_high is not None:
+                target_pos = torch.clip(target_pos, self.position_command_limit_low,
+                                self.position_command_limit_high).to(
+                                    self.device)
+            torques = self.p_gains*(target_pos - self.dof_pos) - self.d_gains*self.dof_vel
+
         elif control_type=="V":
             torques = self.p_gains*(actions_scaled - self.dof_vel) - self.d_gains*(self.dof_vel - self.last_dof_vel)/self.sim_params.dt
         elif control_type=="T":
