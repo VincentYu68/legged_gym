@@ -37,8 +37,10 @@ from .anymal_c.flat.anymal_c_flat_config import AnymalCFlatCfg, AnymalCFlatCfgPP
 from .anymal_b.anymal_b_config import AnymalBRoughCfg, AnymalBRoughCfgPPO
 from .cassie.cassie import Cassie
 from .cassie.cassie_config import CassieRoughCfg, CassieRoughCfgPPO
-from .a1.a1_config import A1RoughCfg, A1RoughCfgPPO, A1FlatCfg, A1FlatCfgPPO
+from .a1.a1_config import A1RoughCfg, A1RoughCfgPPO, A1FlatCfg, A1FlatCfgPPO, A1PumpkinCfg, A1PumpkinHRLCfg
 from .a1.a1 import A1
+from .a1.a1_pumpkin import A1Pumpkin
+from .a1.a1_pumpkin_hrl import A1PumpkinHRL
 
 
 import os
@@ -51,3 +53,5 @@ task_registry.register( "anymal_b", Anymal, AnymalBRoughCfg(), AnymalBRoughCfgPP
 task_registry.register( "a1_rough", LeggedRobot, A1RoughCfg(), A1RoughCfgPPO() )
 task_registry.register( "a1_flat", A1, A1FlatCfg(), A1FlatCfgPPO() )
 task_registry.register( "cassie", Cassie, CassieRoughCfg(), CassieRoughCfgPPO() )
+task_registry.register( "a1_pumpkin", A1Pumpkin, A1PumpkinCfg(), A1FlatCfgPPO() )
+task_registry.register( "a1_pumpkin_hrl", A1PumpkinHRL, A1PumpkinHRLCfg(), A1FlatCfgPPO() )

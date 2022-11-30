@@ -69,8 +69,8 @@ class A1(LeggedRobot):
       ############################
         #use pip install pytinydiffsim to get pytinyopengl3
         
-        self._camera_width = 120
-        self._camera_height = 80
+        self._camera_width = 30
+        self._camera_height = 20
         
         
         
@@ -454,20 +454,19 @@ class A1(LeggedRobot):
           #print("screen_width=",width)
           height = self.viz.opengl_app.renderer.get_screen_height()
           #print("screen_height=",height)
-              
           tile_width = int(width/self.max_x)
           tile_height = int(height/self.max_x)
-          ttensor = self.ttensor.type(torch.float32)*255.
+          ttensor = self.ttensor.type(torch.float32)
           ttensor  = torch.reshape(ttensor, (self.height, self.width, 4))
+
+          # take green channel only
+          ttensor = ttensor[:, :, 1]
+
           #ttensor = torch.flipud(ttensor)
-          ttensor = ttensor.reshape(self.max_x, tile_width, self.max_x, tile_height, 4)
+          ttensor = ttensor.reshape(self.max_x, tile_width, self.max_x, tile_height, 1)
           ttensor = ttensor.swapaxes(1,2)
-          ttensor = ttensor.reshape(self.max_x*self.max_x, tile_width*tile_height*4)
+          ttensor = ttensor.reshape(self.max_x*self.max_x, tile_width*tile_height*1)
           ttensor = ttensor[:self.num_envs,]
-         
-          #self.ttensor  = torch.reshape(self.ttensor, (self.height, self.width, 4))
-          #self.ttensor = self.ttensor[:self.num_envs,]
-          #print("ttensor.shape=", ttensor.shape)
         
         self.obs_buf = torch.cat((  self.base_lin_vel * self.obs_scales.lin_vel,
                                     self.base_ang_vel  * self.obs_scales.ang_vel,
@@ -476,8 +475,8 @@ class A1(LeggedRobot):
                                     (self.dof_pos - self.default_dof_pos) * self.obs_scales.dof_pos,
                                     self.dof_vel * self.obs_scales.dof_vel,
                                     self.actions
-                                    #,
-                                    #ttensor
+                                    ,
+                                    ttensor
                                     ),dim=-1)
         # add perceptive inputs if not blind
         if self.cfg.terrain.measure_heights:
