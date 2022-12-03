@@ -180,17 +180,17 @@ class A1Pumpkin(LeggedRobot):
               pair.viz_origin_rpy = p.viz_origin_rpy
               pairs.append(pair)
             self.all_instances.append(pairs)
-          pk_pair = g.UrdfInstancePair()
-          pk_pair.link_index = 0
           pos = g.TinyVector3f(0, 0, 0.3)
           orn = g.TinyQuaternionf(0.7068252, 0, 0, 0.7073883)
-          color = g.TinyVector3f(1.0,0.5,0.5)
+          color = g.TinyVector3f(0.8,0.5,0.5)
           scaling = g.TinyVector3f(0.4,0.4,0.4)
           opacity = 1
           rebuild = True
           shapes = g.load_obj_shapes(self.viz.opengl_app, asset_root+"/pumpkin_textured.obj", pos, orn, scaling)
           shape = shapes[0]
           for env_id in range(self.num_envs):
+            pk_pair = g.UrdfInstancePair()
+            pk_pair.link_index = 0
             pumpkin_visual_instance = self.viz.opengl_app.renderer.register_graphics_instance(shape, pos, orn, color, scaling, opacity, rebuild)
             pk_pair.visual_instance = pumpkin_visual_instance
             self.all_pumpkin_instances.append([pk_pair])
@@ -513,7 +513,7 @@ class A1Pumpkin(LeggedRobot):
           ttensor = ttensor[:, :, 0]
 
           #ttensor = torch.flipud(ttensor)
-          ttensor = ttensor.reshape(self.max_x, tile_width, self.max_x, tile_height, 1)
+          ttensor = ttensor.reshape(self.max_x, tile_height, self.max_x, tile_width, 1)
           ttensor = ttensor.swapaxes(1,2)
           ttensor = ttensor.reshape(self.max_x*self.max_x, tile_width*tile_height*1)
           ttensor = ttensor[:self.num_envs,]
@@ -525,12 +525,12 @@ class A1Pumpkin(LeggedRobot):
         self.obs_buf = torch.cat((  self.base_lin_vel * self.obs_scales.lin_vel,
                                     self.base_ang_vel  * self.obs_scales.ang_vel,
                                     self.projected_gravity,
-                                    self.commands[:, :3] * self.commands_scale,
+                                    # self.commands[:, :3] * self.commands_scale,
                                     (self.dof_pos - self.default_dof_pos) * self.obs_scales.dof_pos,
                                     self.dof_vel * self.obs_scales.dof_vel,
                                     self.actions,
                                     #self.target_pos - self.root_states[:, :2]
-                                    #ttensor * 0.5
+                                    ttensor * 0.5 - 0.15
                                     ),dim=-1)
         # add perceptive inputs if not blind
         if self.cfg.terrain.measure_heights:
@@ -546,17 +546,19 @@ class A1Pumpkin(LeggedRobot):
         self.last_base_pos[:] = self.root_states[:, :2]
         reward = torch.clip((last_goal_dist - current_goal_dist) / self.dt, -1.5, 1.5)
         #print(self.root_states[:, :2], self.target_pos, current_goal_dist)
-        #reward[current_goal_dist < 0.76] = 1.0
-        reward += 0.1
+        reward[current_goal_dist < 0.76] = 30.0
+        print(current_goal_dist)
+        import pdb; pdb.set_trace()
+        #reward += 0.1
         return reward
         
     def _resample_commands(self, env_ids):
         super()._resample_commands(env_ids)
         if len(env_ids):
-            self.target_pos[env_ids, :] = torch_rand_float(2.0, 10.0, (len(env_ids), 2), device=self.device)
-            self.target_pos[env_ids, 0] *= 1.0  # randomize x in [0, 8]
+            self.target_pos[env_ids, :] = torch_rand_float(0.3, 1.0, (len(env_ids), 2), device=self.device)
+            self.target_pos[env_ids, 0] *= 8.0  # randomize x in [0, 8]
             self.target_pos[env_ids, 1] -= 0.5  # randomize y in [-3, 3]
-            self.target_pos[env_ids, 1] *= 0.0
+            self.target_pos[env_ids, 1] *= 16.0
             self.target_pos[env_ids, :] += self.env_origins[env_ids, :2] + self.base_init_state[:2]
 
             self.last_base_pos[env_ids] = self.root_states[env_ids, :2]

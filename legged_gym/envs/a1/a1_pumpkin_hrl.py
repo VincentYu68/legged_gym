@@ -199,17 +199,17 @@ class A1PumpkinHRL(LeggedRobot):
               pair.viz_origin_rpy = p.viz_origin_rpy
               pairs.append(pair)
             self.all_instances.append(pairs)
-          pk_pair = g.UrdfInstancePair()
-          pk_pair.link_index = 0
           pos = g.TinyVector3f(0, 0, 0.3)
           orn = g.TinyQuaternionf(0.7068252, 0, 0, 0.7073883)
-          color = g.TinyVector3f(1.0,0.5,0.5)
+          color = g.TinyVector3f(0.8,0.5,0.5)
           scaling = g.TinyVector3f(0.4,0.4,0.4)
           opacity = 1
           rebuild = True
           shapes = g.load_obj_shapes(self.viz.opengl_app, asset_root+"/pumpkin_textured.obj", pos, orn, scaling)
           shape = shapes[0]
           for env_id in range(self.num_envs):
+            pk_pair = g.UrdfInstancePair()
+            pk_pair.link_index = 0
             pumpkin_visual_instance = self.viz.opengl_app.renderer.register_graphics_instance(shape, pos, orn, color, scaling, opacity, rebuild)
             pk_pair.visual_instance = pumpkin_visual_instance
             self.all_pumpkin_instances.append([pk_pair])
@@ -350,6 +350,7 @@ class A1PumpkinHRL(LeggedRobot):
         super()._init_buffers()
         self.last_base_pos = torch.zeros_like(self.root_states[:, :2])
         self.target_pos = torch.zeros_like(self.root_states[:, :2])
+        self.reshaped_cam_img = None
 
     def step(self, hl_actions):
         """ Apply actions, simulate, call self.post_physics_step()
@@ -359,17 +360,16 @@ class A1PumpkinHRL(LeggedRobot):
         clip_actions = self.cfg.normalization.clip_actions
         # step physics and render each frame
 
-        hl_actions[:, 0] = 1.0
-        hl_actions[:, 1] = 0.0
-        hl_actions[:, 2] = 0.0
-        print(hl_actions[:, 0:3])
+        hl_actions *= 0.2
+        hl_actions = torch.clip(hl_actions, -1.0, 1.0)
+        #hl_actions[:, 0] = 1.0
+        # print('clip ' ,hl_actions[:, 0:3])
+        
         ll_obs = self.compute_lowlevel_observations(hl_actions[:, 0:3])
 
         action = self.lowlevel_policy(ll_obs.detach())
         action = torch.clip(action, -clip_actions, clip_actions).to(self.device)
-        self.action = action
-        print(self.action)
-        import pdb; pdb.set_trace()
+        self.actions = action
 
         self.render()
         for _ in range(self.cfg.control.decimation):
@@ -445,14 +445,13 @@ class A1PumpkinHRL(LeggedRobot):
             # Synchronize the renderer world transforms for all environments
 
             self.viz.sync_visual_transforms(self.all_instances, visual_world_transforms, 0, sim_spacing, apply_visual_offset=True)
-            
             target_world_transforms = np.zeros((self.num_envs, 7))
             target_world_transforms[:, 3] = 0.7068252
             target_world_transforms[:, -1] = 0.7073883
             target_world_transforms[:, 2] = 0.3
             target_world_transforms[:, 0:2] = self.target_pos.cpu().numpy()
             self.viz.sync_visual_transforms(self.all_pumpkin_instances, target_world_transforms, 0, 0, apply_visual_offset=True)
-
+           
   
             et = time.time()
             #print("sync_visual_transforms dt=",et-ct)
@@ -484,6 +483,8 @@ class A1PumpkinHRL(LeggedRobot):
             if use_tiled:
                 #cam_local_pose = g.TinyPosef(g.TinyVector3f(0.28,0,0.03), g.TinyQuaternionf(0, 0.3894183, 0, 0.921061))
                 cam_local_pose = g.TinyPosef(g.TinyVector3f(0.28,0,0.03), g.TinyQuaternionf(0, 0.0, 0, 1))
+                #cam_local_pose = g.TinyPosef(g.TinyVector3f(-0.0,0,4.0), g.TinyQuaternionf(0, 0.7068252, 0, 0.7073883))
+                
                 for tile_index in range (self.num_envs):
                     tile = self.tiles[tile_index]
                     
@@ -552,7 +553,13 @@ class A1PumpkinHRL(LeggedRobot):
                 np_img_arr = ftensor.cpu().numpy()
                 np_img_arr = np.reshape(np_img_arr, (self.height, self.width, 4))
                 np_img_arr = np.flipud(np_img_arr)
+                np_img_arr[np_img_arr==1] *= 0.0
+                np_img_arr = np_img_arr[:, :, 0]
                 self.matplot_image.set_data(np_img_arr)
+                # if self.reshaped_cam_img is not None:
+                #   cam_img = self.reshaped_cam_img.cpu().numpy()
+                #   self.matplot_image.set_data(cam_img[0].reshape(200, 300))
+                #   import pb; pdb.set_trace()
               else:
                 if self.show_data == DEPTH_DATA:
                   np_depth_arr = np.flipud(np.reshape(pixels.depth, (height, width, 1)))
@@ -583,11 +590,13 @@ class A1PumpkinHRL(LeggedRobot):
           ttensor[ttensor==1] *= 0.0
           ttensor = ttensor[:, :, 0]
 
-          #ttensor = torch.flipud(ttensor)
-          ttensor = ttensor.reshape(self.max_x, tile_width, self.max_x, tile_height, 1)
+          ttensor = torch.flipud(ttensor)
+          ttensor = ttensor.reshape(self.max_x, tile_height, self.max_x, tile_width, 1)
           ttensor = ttensor.swapaxes(1,2)
           ttensor = ttensor.reshape(self.max_x*self.max_x, tile_width*tile_height*1)
           ttensor = ttensor[:self.num_envs,]
+
+          self.reshaped_cam_img = ttensor
            
           #self.ttensor  = torch.reshape(self.ttensor, (self.height, self.width, 4))
           #self.ttensor = self.ttensor[:self.num_envs,]
@@ -601,7 +610,7 @@ class A1PumpkinHRL(LeggedRobot):
                                     self.dof_vel * self.obs_scales.dof_vel,
                                     self.actions,
                                     #self.target_pos - self.root_states[:, :2]
-                                    ttensor * 0.5
+                                    ttensor * 0.5 - 0.15
                                     ),dim=-1)
         # add perceptive inputs if not blind
         if self.cfg.terrain.measure_heights:
@@ -617,17 +626,20 @@ class A1PumpkinHRL(LeggedRobot):
         self.last_base_pos[:] = self.root_states[:, :2]
         reward = torch.clip((last_goal_dist - current_goal_dist) / self.dt, -1.5, 1.5)
         #print(self.root_states[:, :2], self.target_pos, current_goal_dist)
-        #reward[current_goal_dist < 0.76] = 1.0
-        reward += 0.1
+        reward[current_goal_dist < 0.75] = 2.0
+
+        if self.reshaped_cam_img is not None:
+          reward += torch.sum(self.reshaped_cam_img>0.4, axis=1)/self.reshaped_cam_img.shape[1] * 10
+          
         return reward
         
     def _resample_commands(self, env_ids):
         super()._resample_commands(env_ids)
         if len(env_ids):
-            self.target_pos[env_ids, :] = torch_rand_float(2.0, 10.0, (len(env_ids), 2), device=self.device)
-            self.target_pos[env_ids, 0] *= 1.0  # randomize x in [0, 8]
+            self.target_pos[env_ids, :] = torch_rand_float(0.3, 1.0, (len(env_ids), 2), device=self.device)
+            self.target_pos[env_ids, 0] *= 5.0  # randomize x in [0, 8]
             self.target_pos[env_ids, 1] -= 0.5  # randomize y in [-3, 3]
-            self.target_pos[env_ids, 1] *= 0.0
+            self.target_pos[env_ids, 1] *= 2.0
             self.target_pos[env_ids, :] += self.env_origins[env_ids, :2] + self.base_init_state[:2]
 
             self.last_base_pos[env_ids] = self.root_states[env_ids, :2]
@@ -649,7 +661,7 @@ class A1PumpkinHRL(LeggedRobot):
                                       joint_angle_limit_terminate)
         current_goal_dist = torch.norm(self.target_pos - self.root_states[:, :2], dim=-1)
         
-        reach_goal_termination = current_goal_dist < 0.75
+        reach_goal_termination = current_goal_dist < 0.5
         
         self.reset_buf = torch.logical_or(self.reset_buf,
                                       reach_goal_termination)

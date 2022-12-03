@@ -98,6 +98,14 @@ class A1FlatCfgPPO( LeggedRobotCfgPPO ):
         experiment_name = 'a1_flat'
         max_iterations = 400
 
+class A1PumpkinHRLCfgPPO( LeggedRobotCfgPPO ):
+    class algorithm( LeggedRobotCfgPPO.algorithm ):
+        entropy_coef = 0.0
+    class runner( LeggedRobotCfgPPO.runner ):
+        run_name = ''
+        experiment_name = 'a1_pumpkin_hrl'
+        max_iterations = 400
+
 
  
 class A1FlatCfg( LeggedRobotCfg ):
@@ -189,7 +197,7 @@ class A1PumpkinCfg( LeggedRobotCfg ):
 
 
     class env( LeggedRobotCfg.env ):
-      num_observations = 48#5 + 600
+      num_observations = 45 + 600
       position_command_limit_low = [
             -HIP_LIMIT + OFFSET, THIGH_MIN + OFFSET, CALF_MIN + OFFSET
           ] * 4
@@ -234,13 +242,13 @@ class A1PumpkinCfg( LeggedRobotCfg ):
         class scales( LeggedRobotCfg.rewards.scales ):
             torques = -0.0002
             dof_pos_limits = -10.0
-            tracking_lin_vel = 2.0
-            tracking_ang_vel = 1.0
+            tracking_lin_vel = 0.0
+            tracking_ang_vel = 0.0
             base_height = -5.0
             orientation = -5.0
             action_rate = -0.035
             action_magnitude = -0.015
-            obj_locate = 0.0
+            obj_locate = 10.0
             
     class commands(LeggedRobotCfg.commands):
         class ranges(LeggedRobotCfg.commands.ranges):
@@ -315,15 +323,21 @@ class A1PumpkinHRLCfg( LeggedRobotCfg ):
         base_height_target = 0.25
         only_positive_rewards = False
         class scales( LeggedRobotCfg.rewards.scales ):
-            torques = -0.0002
+            torques = -0.0
             dof_pos_limits = -10.0
             tracking_lin_vel = 0.0
             tracking_ang_vel = 0.0
-            base_height = -5.0
-            orientation = -5.0
-            action_rate = -0.035
-            action_magnitude = -0.015
+            base_height = 0.0
+            orientation = 0.0
+            action_rate = -0.0
+            action_magnitude = -0.05
             obj_locate = 10.0
+            lin_vel_z = -0.0
+            ang_vel_xy = -0.0
+            dof_acc = 0.0
+            base_height = -0. 
+            feet_air_time =  0.0
+            collision = -0.
             
     class commands(LeggedRobotCfg.commands):
         class ranges(LeggedRobotCfg.commands.ranges):
