@@ -547,8 +547,6 @@ class A1Pumpkin(LeggedRobot):
         reward = torch.clip((last_goal_dist - current_goal_dist) / self.dt, -1.5, 1.5)
         #print(self.root_states[:, :2], self.target_pos, current_goal_dist)
         reward[current_goal_dist < 0.76] = 30.0
-        print(current_goal_dist)
-        import pdb; pdb.set_trace()
         #reward += 0.1
         return reward
         
