@@ -198,6 +198,7 @@ class A1PumpkinCfg( LeggedRobotCfg ):
 
     class env( LeggedRobotCfg.env ):
       num_observations = 45 + 600
+      episode_length_s = 30
       position_command_limit_low = [
             -HIP_LIMIT + OFFSET, THIGH_MIN + OFFSET, CALF_MIN + OFFSET
           ] * 4
@@ -246,11 +247,12 @@ class A1PumpkinCfg( LeggedRobotCfg ):
             tracking_ang_vel = 0.0
             base_height = -5.0
             orientation = -5.0
-            action_rate = -0.035
-            action_magnitude = -0.015
+            action_rate = -0.055
+            action_magnitude = -0.025
             obj_locate = 10.0
             
     class commands(LeggedRobotCfg.commands):
+        resampling_time = 5.0
         class ranges(LeggedRobotCfg.commands.ranges):
             lin_vel_x = [1.0, 1.0] # min max [m/s]
             lin_vel_y = [-0.0, 0.0]   # min max [m/s]

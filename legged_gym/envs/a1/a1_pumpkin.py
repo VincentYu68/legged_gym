@@ -585,5 +585,17 @@ class A1Pumpkin(LeggedRobot):
         self.reset_buf = torch.logical_or(self.reset_buf,
                                       reach_goal_termination)
         
-        
+    def post_physics_step(self):
+      super().post_physics_step()
+      if self.viewer and self.enable_viewer_sync:
+        self._draw_pumpkin()
+
+    def _draw_pumpkin(self):
+      self.gym.clear_lines(self.viewer)
+      self.gym.refresh_rigid_body_state_tensor(self.sim)
+      sphere_geom = gymutil.WireframeSphereGeometry(0.2, 8, 8, None, color=(0.8, 0.3, 0.3))
+      for i in range(self.num_envs):
+        target_pos = (self.target_pos[i, :2]).cpu().numpy()
+        sphere_pose = gymapi.Transform(gymapi.Vec3(target_pos[0], target_pos[1], 0.3), r=None)
+        gymutil.draw_lines(sphere_geom, self.gym, self.viewer, self.envs[i], sphere_pose) 
       
