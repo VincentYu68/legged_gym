@@ -103,8 +103,8 @@ def play(args):
                     'contact_forces_z': env.contact_forces[robot_index, env.feet_indices, 2].cpu().numpy()
                 }
             )
-        elif i==stop_state_log:
-            logger.plot_states()
+        # elif i==stop_state_log:
+        #     logger.plot_states()
         if  0 < i < stop_rew_log:
             if infos["episode"]:
                 num_episodes = torch.sum(env.reset_buf).item()

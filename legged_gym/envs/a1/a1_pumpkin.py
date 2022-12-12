@@ -186,8 +186,10 @@ class A1Pumpkin(LeggedRobot):
           scaling = g.TinyVector3f(0.4,0.4,0.4)
           opacity = 1
           rebuild = True
+          
           shapes = g.load_obj_shapes(self.viz.opengl_app, asset_root+"/pumpkin_textured.obj", pos, orn, scaling)
           shape = shapes[0]
+
           for env_id in range(self.num_envs):
             pk_pair = g.UrdfInstancePair()
             pk_pair.link_index = 0
