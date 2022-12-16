@@ -298,8 +298,8 @@ class A1Pumpkin(LeggedRobot):
                 viz_instances = []
                 
                 # add the robot specific to this 'tile' to its 'viz_instances'
-                for pair in pairs:
-                  viz_instances.append(pair.visual_instance)
+                # for pair in pairs:
+                #   viz_instances.append(pair.visual_instance)
                 
                 viz_instances.append(self.all_pumpkin_instances[t][0].visual_instance)
                 #add the single ground plane to each tile
@@ -546,9 +546,10 @@ class A1Pumpkin(LeggedRobot):
         last_goal_dist = torch.norm(self.target_pos - self.last_base_pos, dim=-1)
         current_goal_dist = torch.norm(self.target_pos - self.root_states[:, :2], dim=-1)
         self.last_base_pos[:] = self.root_states[:, :2]
-        reward = torch.clip((last_goal_dist - current_goal_dist) / self.dt, -1.5, 1.5)
+        reward = torch.clip((last_goal_dist - current_goal_dist) / self.dt, -1.0, 1.0)
         #print(self.root_states[:, :2], self.target_pos, current_goal_dist)
         reward[current_goal_dist < 0.76] = 30.0
+        self._resample_commands((current_goal_dist < 0.76).nonzero(as_tuple=False).flatten())
         #reward += 0.1
         return reward
         
@@ -556,10 +557,10 @@ class A1Pumpkin(LeggedRobot):
         super()._resample_commands(env_ids)
         if len(env_ids):
             self.target_pos[env_ids, :] = torch_rand_float(0.3, 1.0, (len(env_ids), 2), device=self.device)
-            self.target_pos[env_ids, 0] *= 8.0  # randomize x in [0, 8]
-            self.target_pos[env_ids, 1] -= 0.5  # randomize y in [-3, 3]
-            self.target_pos[env_ids, 1] *= 16.0
-            self.target_pos[env_ids, :] += self.env_origins[env_ids, :2] + self.base_init_state[:2]
+            self.target_pos[env_ids, 0] *= 6.0  # randomize x in [1.8, 6]
+            self.target_pos[env_ids, 1] -= 0.5  # randomize y in [-6, 6]
+            self.target_pos[env_ids, 1] *= 12.0
+            self.target_pos[env_ids, :] += self.root_states[env_ids, :2] #self.env_origins[env_ids, :2] + self.base_init_state[:2]
 
             self.last_base_pos[env_ids] = self.root_states[env_ids, :2]
             
@@ -580,7 +581,7 @@ class A1Pumpkin(LeggedRobot):
                                       joint_angle_limit_terminate)
         current_goal_dist = torch.norm(self.target_pos - self.root_states[:, :2], dim=-1)
         
-        reach_goal_termination = current_goal_dist < 0.75
+        reach_goal_termination = current_goal_dist < -1
         
         self.reset_buf = torch.logical_or(self.reset_buf,
                                       reach_goal_termination)

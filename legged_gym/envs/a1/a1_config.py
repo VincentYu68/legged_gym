@@ -198,7 +198,7 @@ class A1PumpkinCfg( LeggedRobotCfg ):
 
     class env( LeggedRobotCfg.env ):
       num_observations = 45 + 600
-      episode_length_s = 30
+      episode_length_s = 20
       position_command_limit_low = [
             -HIP_LIMIT + OFFSET, THIGH_MIN + OFFSET, CALF_MIN + OFFSET
           ] * 4
@@ -220,10 +220,10 @@ class A1PumpkinCfg( LeggedRobotCfg ):
     class control( LeggedRobotCfg.control ):
         # PD Drive parameters:
         control_type = 'P'
-        stiffness = {'joint': 30.}  # [N*m/rad]
+        stiffness = {'joint': 20.}  # [N*m/rad]
         damping = {'joint': 0.5}     # [N*m*s/rad]
         # action scale: target angle = actionScale * action + defaultAngle
-        action_scale = 0.25
+        action_scale = 0.35
         # decimation: Number of control action updates @ sim DT per policy DT
         decimation = 4
 
@@ -245,14 +245,14 @@ class A1PumpkinCfg( LeggedRobotCfg ):
             dof_pos_limits = -10.0
             tracking_lin_vel = 0.0
             tracking_ang_vel = 0.0
-            base_height = -5.0
+            base_height = -10.0
             orientation = -5.0
-            action_rate = -0.055
-            action_magnitude = -0.025
+            action_rate = -0.045
+            action_magnitude = -0.035
             obj_locate = 10.0
             
     class commands(LeggedRobotCfg.commands):
-        resampling_time = 5.0
+        resampling_time = 7.0
         class ranges(LeggedRobotCfg.commands.ranges):
             lin_vel_x = [1.0, 1.0] # min max [m/s]
             lin_vel_y = [-0.0, 0.0]   # min max [m/s]
