@@ -74,8 +74,8 @@ class A1Pumpkin(LeggedRobot):
       ############################
         #use pip install pytinydiffsim to get pytinyopengl3
         
-        self._camera_width = 30
-        self._camera_height = 20
+        self._camera_width = 100
+        self._camera_height = 100
         
         
         
@@ -483,6 +483,8 @@ class A1Pumpkin(LeggedRobot):
                 np_img_arr = ftensor.cpu().numpy()
                 np_img_arr = np.reshape(np_img_arr, (self.height, self.width, 4))
                 np_img_arr = np.flipud(np_img_arr)
+                # np_img_arr[np_img_arr==1] *= 0.0
+                # np_img_arr = np_img_arr[:, :, 0]
                 self.matplot_image.set_data(np_img_arr)
               else:
                 if self.show_data == DEPTH_DATA:
@@ -532,7 +534,7 @@ class A1Pumpkin(LeggedRobot):
                                     self.dof_vel * self.obs_scales.dof_vel,
                                     self.actions,
                                     #self.target_pos - self.root_states[:, :2]
-                                    ttensor * 0.5 - 0.15
+                                    ttensor# * 0.5 - 0.15
                                     ),dim=-1)
         # add perceptive inputs if not blind
         if self.cfg.terrain.measure_heights:
